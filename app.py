@@ -18,7 +18,8 @@ st.markdown("""
         color: #2E86AB;
         font-size: 3rem;
         font-weight: bold;
-        margin-bottom: 2rem;
+        margin-top: 1rem;
+        margin-bottom: 6rem;
     }
     .section-header {
         color: #A23B72;
@@ -59,7 +60,6 @@ st.markdown("""
 
 # Main header
 st.markdown('<h1 class="main-header">📚 Vocabulary Hero</h1>', unsafe_allow_html=True)
-st.markdown("### *Build vocabulary through engaging stories!*")
 
 # Sidebar for user inputs
 st.sidebar.markdown("## 🎯 Settings")
@@ -148,8 +148,40 @@ if generate_button:
                 st.markdown('<h2 class="section-header">📖 Story</h2>', unsafe_allow_html=True)
                 
                 if results["story_text"]:
+                    # Italicize the vocabulary words in the story
+                    story_with_italics = results["story_text"]
+                    
+                    if results["word_list"]:
+                        try:
+                            # Get the word list
+                            if isinstance(results["word_list"], str):
+                                word_list = json.loads(results["word_list"])
+                            else:
+                                word_list = results["word_list"]
+                            
+                            # Sort words by length (longest first) to avoid partial replacements
+                            sorted_words = sorted(word_list, key=len, reverse=True)
+                            
+                            # Italicize each vocabulary word in the story
+                            import re
+                            for word in sorted_words:
+                                # Create a regex pattern that matches the word with word boundaries
+                                # and handles different capitalizations
+                                pattern = r'\b' + re.escape(word.lower()) + r'\b'
+                                
+                                # Replace with italicized version, preserving original capitalization
+                                def replace_func(match):
+                                    original_word = match.group(0)
+                                    return f"*{original_word}*"
+                                
+                                story_with_italics = re.sub(pattern, replace_func, story_with_italics, flags=re.IGNORECASE)
+                                
+                        except (json.JSONDecodeError, ImportError):
+                            # If there's any error, just show the original story
+                            story_with_italics = results["story_text"]
+                    
                     st.markdown('<div class="story-content">', unsafe_allow_html=True)
-                    st.markdown(results["story_text"])
+                    st.markdown(story_with_italics)
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.warning("No story generated")
@@ -158,15 +190,20 @@ if generate_button:
             st.markdown('<h2 class="section-header">📚 Glossary</h2>', unsafe_allow_html=True)
             
             if results["glossary"]:
+                # Remove the duplicate "# Vocabulary Glossary" header from the agent output
+                glossary_content = results["glossary"]
+                if glossary_content.startswith("# Vocabulary Glossary"):
+                    # Find the first line break and remove everything before it
+                    first_newline = glossary_content.find('\n')
+                    if first_newline != -1:
+                        glossary_content = glossary_content[first_newline + 1:].lstrip()
+                
                 st.markdown('<div class="glossary-content">', unsafe_allow_html=True)
-                st.markdown(results["glossary"])
+                st.markdown(glossary_content)
                 st.markdown('</div>', unsafe_allow_html=True)
             else:
-                st.warning("No glossary generated")
-                
-            # Success message
-            st.success("🎉 Vocabulary adventure created successfully!")
-            
+                st.warning("No glossary generated")                
+                        
         except Exception as e:
             st.error(f"❌ An error occurred: {str(e)}")
             st.info("Please check your OpenAI API key and try again.")
@@ -174,7 +211,7 @@ if generate_button:
 else:
     # Welcome message when no generation has been run
     st.markdown("---")
-    st.markdown("### 👋 Welcome to VocabularyHero!")
+    st.markdown("### 👋 Welcome to Vocabulary Hero!")
     
     col1, col2, col3 = st.columns(3)
     
@@ -201,8 +238,3 @@ else:
 
 # Footer
 st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; font-size: 0.9rem;'>
-    Made using Streamlit and CrewAI | VocabularyHero © 2025
-</div>
-""", unsafe_allow_html=True)
