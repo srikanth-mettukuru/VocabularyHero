@@ -65,21 +65,30 @@ st.markdown('<h1 class="main-header">📚 Vocabulary Hero</h1>', unsafe_allow_ht
 st.sidebar.markdown("## 🎯 Settings")
 st.sidebar.markdown('<div class="sidebar-info">Select your preferences to generate a personalized vocabulary learning experience!</div>', unsafe_allow_html=True)
 
-# Alphabet selection
-alphabet = st.sidebar.selectbox(
-    "📝 Choose Starting Letter:",
-    options=list("ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-    index=0,  # Default to 'A'
-    help="Select the letter that all vocabulary words should start with"
+# Character sequence input
+character_sequence = st.sidebar.text_input(
+    "📝 Enter Character Sequence:",
+    value="ac",  # Default value
+    max_chars=3,
+    help="Enter 1-3 characters that words should start with (e.g., 'a', 'ac', 'ser')"
+).lower().strip()
+
+# Grade level selection with clear grade levels and skill descriptors
+grade_options = {
+    "📚 Grade 6 (Basic)": 6,
+    "📖 Grade 8 (Intermediate)": 8, 
+    "🎯 Grade 10 (Advanced)": 10,
+    "🏆 Grade 12 (Expert)": 12
+}
+
+selected_grade = st.sidebar.selectbox(
+    "🎓 Select Grade Level:",
+    options=list(grade_options.keys()),
+    index=0,  # Default to Grade 6
+    help="Choose the grade level appropriate for the student's vocabulary learning goals"
 )
 
-# Grade level selection
-grade_level = st.sidebar.selectbox(
-    "🎓 Select Grade Level:",
-    options=list(range(6, 13)),  # 6 to 12
-    index=0,  # Default to grade 6
-    help="Choose the appropriate grade level for vocabulary difficulty"
-)
+grade_level = grade_options[selected_grade]
 
 # Generate button
 generate_button = st.sidebar.button(
@@ -92,75 +101,113 @@ generate_button = st.sidebar.button(
 st.sidebar.markdown("---")
 st.sidebar.markdown("### ℹ️ How it works:")
 st.sidebar.markdown("""
-1. **Word Generator**: Creates some vocabulary words
+1. **Word Generator**: Creates up to 15 vocabulary words
 2. **Story Writer**: Crafts an engaging story using all words
 3. **Glossary Creator**: Explains each word with context
 """)
 
 # Main content area
 if generate_button:
+    # Input validation
+    if not character_sequence or len(character_sequence) == 0:
+        st.error("❌ Please enter at least 1 character")
+        st.stop()
+    
+    if not character_sequence.isalpha():
+        st.error("❌ Please enter only alphabetic characters (a-z)")
+        st.stop()
+    
     st.markdown("---")
     
-    # Show loading message
-    with st.spinner(f"🎨 Creating vocabulary for letter '{alphabet}' at grade {grade_level} level..."):
+    # Show loading message and run pipeline
+    grade_display = selected_grade.split(' ', 1)[1] if ' ' in selected_grade else selected_grade
+    with st.spinner(f"🎨 Creating vocabulary for sequence '{character_sequence}' at {grade_display} level..."):
         try:
             # Run the CrewAI pipeline
-            results = run_words_story_glossary_pipeline(alphabet, grade_level)
+            results = run_words_story_glossary_pipeline(character_sequence, grade_level)
+        except Exception as e:
+            st.error(f"❌ An error occurred: {str(e)}")
+            st.info("Please check your OpenAI API key and try again.")
+            st.stop()
+    
+    # Parse and validate results (outside the spinner)
+    if results["word_list"]:
+        try:
+            if isinstance(results["word_list"], str):
+                word_list = json.loads(results["word_list"])
+            else:
+                word_list = results["word_list"]
             
-            # Display results in columns for better layout
-            col1, col2 = st.columns([1, 2])
+            # Check if it's an error response
+            if isinstance(word_list, dict) and "error" in word_list:
+                st.error(f"❌ {word_list['error']}")
+                st.info("💡 **Suggestions:**\n- Try a different character sequence (e.g., 'a', 'an', 'ch')\n- Try a different grade level\n- Use more common letter combinations")
+                st.stop()  # Don't show story or glossary
             
-            with col1:
-                # Word List Section
-                st.markdown('<h2 class="section-header">📝 Words </h2>', unsafe_allow_html=True)
+            # Check if it's an empty list
+            if isinstance(word_list, list) and len(word_list) == 0:
+                st.error(f"❌ No words found starting with '{character_sequence}' for grade {grade_level}")
+                st.info("💡 **Suggestions:**\n- Try a different character sequence (e.g., 'a', 'an', 'ch')\n- Try a different grade level\n- Use more common letter combinations")
+                st.stop()  # Don't show story or glossary
+                
+        except json.JSONDecodeError:
+            st.error("❌ Error parsing word list")
+            st.info("💡 Try again with a different character sequence")
+            st.stop()
+    else:
+        st.error(f"❌ No words found starting with '{character_sequence}' for grade {grade_level}")
+        st.info("💡 **Suggestions:**\n- Try a different character sequence (e.g., 'a', 'an', 'ch')\n- Try a different grade level\n- Use more common letter combinations")
+        st.stop()
+    
+    # Display results in columns for better layout
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Word List Section
+        st.markdown('<h2 class="section-header">📝 Words </h2>', unsafe_allow_html=True)
+        
+        # Display words in a nice format
+        st.markdown('<div class="word-list">', unsafe_allow_html=True)
+        
+        # Extract grade level and skill descriptor from selected option
+        # Format: "📚 Grade 6 (Basic)" -> "Grade 6 (Basic)"
+        grade_display = selected_grade.split(' ', 1)[1] if ' ' in selected_grade else selected_grade
+        st.markdown(f"**Starting with '{character_sequence}' - {grade_display}**")
+        
+        # Create a numbered list of words
+        word_display = ""
+        for i, word in enumerate(word_list, 1):
+            word_display += f"{i}. **{word.capitalize()}**\n"
+        
+        st.markdown(word_display)
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Show word count
+        st.info(f"✅ Generated {len(word_list)} word(s)")
+    
+    with col2:
+        # Story Section
+        st.markdown('<h2 class="section-header">📖 Story</h2>', unsafe_allow_html=True)
+        
+        if results["story_text"]:
+            if results["story_text"].strip().startswith("No story created"):
+                st.info("📝 No story was created because no vocabulary words were found.")
+            else:
+                # Italicize the vocabulary words in the story
+                story_with_italics = results["story_text"]
                 
                 if results["word_list"]:
-                    # Parse the word list if it's a JSON string
                     try:
+                        # Get the word list
                         if isinstance(results["word_list"], str):
-                            word_list = json.loads(results["word_list"])
+                            word_list_for_story = json.loads(results["word_list"])
                         else:
-                            word_list = results["word_list"]
+                            word_list_for_story = results["word_list"]
                         
-                        # Display words in a nice format
-                        st.markdown('<div class="word-list">', unsafe_allow_html=True)
-                        st.markdown(f"**Starting with '{alphabet}' - Grade {grade_level}**")
-                        
-                        # Create a numbered list of words
-                        word_display = ""
-                        for i, word in enumerate(word_list, 1):
-                            word_display += f"{i}. **{word.capitalize()}**\n"
-                        
-                        st.markdown(word_display)
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        
-                        # Show word count
-                        st.info(f"✅ Generated {len(word_list)} words")
-                        
-                    except json.JSONDecodeError:
-                        st.error("Error parsing word list")
-                        st.text(results["word_list"])
-                else:
-                    st.warning("No words generated")
-            
-            with col2:
-                # Story Section
-                st.markdown('<h2 class="section-header">📖 Story</h2>', unsafe_allow_html=True)
-                
-                if results["story_text"]:
-                    # Italicize the vocabulary words in the story
-                    story_with_italics = results["story_text"]
-                    
-                    if results["word_list"]:
-                        try:
-                            # Get the word list
-                            if isinstance(results["word_list"], str):
-                                word_list = json.loads(results["word_list"])
-                            else:
-                                word_list = results["word_list"]
-                            
+                        # Only italicize if we have a proper word list (not error dict)
+                        if isinstance(word_list_for_story, list) and len(word_list_for_story) > 0:
                             # Sort words by length (longest first) to avoid partial replacements
-                            sorted_words = sorted(word_list, key=len, reverse=True)
+                            sorted_words = sorted(word_list_for_story, key=len, reverse=True)
                             
                             # Italicize each vocabulary word in the story
                             import re
@@ -176,37 +223,36 @@ if generate_button:
                                 
                                 story_with_italics = re.sub(pattern, replace_func, story_with_italics, flags=re.IGNORECASE)
                                 
-                        except (json.JSONDecodeError, ImportError):
-                            # If there's any error, just show the original story
-                            story_with_italics = results["story_text"]
-                    
-                    st.markdown('<div class="story-content">', unsafe_allow_html=True)
-                    st.markdown(story_with_italics)
-                    st.markdown('</div>', unsafe_allow_html=True)
-                else:
-                    st.warning("No story generated")
-            
-            # Full-width glossary section
-            st.markdown('<h2 class="section-header">📚 Glossary</h2>', unsafe_allow_html=True)
-            
-            if results["glossary"]:
-                # Remove the duplicate "# Vocabulary Glossary" header from the agent output
-                glossary_content = results["glossary"]
-                if glossary_content.startswith("# Vocabulary Glossary"):
-                    # Find the first line break and remove everything before it
-                    first_newline = glossary_content.find('\n')
-                    if first_newline != -1:
-                        glossary_content = glossary_content[first_newline + 1:].lstrip()
+                    except (json.JSONDecodeError, ImportError):
+                        # If there's any error, just show the original story
+                        story_with_italics = results["story_text"]
                 
-                st.markdown('<div class="glossary-content">', unsafe_allow_html=True)
-                st.markdown(glossary_content)
+                st.markdown('<div class="story-content">', unsafe_allow_html=True)
+                st.markdown(story_with_italics)
                 st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                st.warning("No glossary generated")                
-                        
-        except Exception as e:
-            st.error(f"❌ An error occurred: {str(e)}")
-            st.info("Please check your OpenAI API key and try again.")
+        else:
+            st.warning("No story generated")
+    
+    # Full-width glossary section
+    st.markdown('<h2 class="section-header">📚 Glossary</h2>', unsafe_allow_html=True)
+    
+    if results["glossary"]:
+        glossary_content = results["glossary"]
+        if glossary_content.strip().startswith("No glossary created"):
+            st.info("� No glossary was created because no vocabulary words were found.")
+        else:
+            # Remove the duplicate "# Vocabulary Glossary" header from the agent output
+            if glossary_content.startswith("# Vocabulary Glossary"):
+                first_newline = glossary_content.find('\n')
+                if first_newline != -1:
+                    glossary_content = glossary_content[first_newline + 1:].lstrip()
+            
+            st.markdown('<div class="glossary-content">', unsafe_allow_html=True)
+            st.markdown(glossary_content)
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.warning("No glossary generated")
+
 
 else:
     # Welcome message when no generation has been run
@@ -218,13 +264,13 @@ else:
     with col1:
         st.markdown("""
         #### 📝 Word Generation
-        Our AI-powered app generates 10-15 educational  words starting with your chosen letter, perfectly suited for your selected grade level.
+        Our AI generates up to 15 educational words starting with your chosen character sequence (1-3 letters), perfectly suited for your selected grade level.
         """)
     
     with col2:
         st.markdown("""
         #### 📖 Story Creation  
-        Watch as our creative writer weaves all words into an engaging, age-appropriate story that brings learning to life.
+        Watch as our creative writer weaves all words into an engaging, age-appropriate story that adapts its length based on the number of words found.
         """)
     
     with col3:
@@ -235,6 +281,34 @@ else:
     
     st.markdown("---")
     st.info("👈 Use the sidebar to select your preferences and click 'Generate Vocabulary' to begin!")
+    
+    # Add character sequence examples
+    st.markdown("### 💡 Character Sequence Examples:")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **Single Letters:**
+        - `a` → apple, amazing, adventure
+        - `b` → banana, beautiful, brave
+        - `c` → cat, creative, celebrate
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Two Letters:**
+        - `ch` → challenge, character, choose
+        - `th` → think, through, theory
+        - `st` → story, student, strong
+        """)
+    
+    with col3:
+        st.markdown("""
+        **Three Letters:**
+        - `str` → strong, structure, strategy
+        - `pre` → present, prepare, previous
+        - `con` → consider, connect, continue
+        """)
 
 # Footer
 st.markdown("---")

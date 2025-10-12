@@ -6,7 +6,7 @@ from tasks.generator_task import get_generator_task
 from tasks.writer_task import get_writer_task
 from tasks.glossary_task import get_glossary_task
 
-def run_words_story_glossary_pipeline(alphabet: str, grade_level: int):
+def run_words_story_glossary_pipeline(character_sequence: str, grade_level: int):
     # --- Initialize agents ---
     generator_agent = get_generator_agent()
     writer_agent = get_writer_agent()
@@ -27,7 +27,7 @@ def run_words_story_glossary_pipeline(alphabet: str, grade_level: int):
 
     # --- Execute the crew with inputs ---
     inputs = {
-        "alphabet": alphabet,
+        "character_sequence": character_sequence,
         "grade_level": grade_level
     }
     
