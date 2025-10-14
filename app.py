@@ -69,16 +69,16 @@ st.sidebar.markdown('<div class="sidebar-info">Select your preferences to genera
 character_sequence = st.sidebar.text_input(
     "📝 Enter Character Sequence:",
     value="ac",  # Default value
-    max_chars=3,
-    help="Enter 1-3 characters that words should start with (e.g., 'a', 'ac', 'ser')"
+    max_chars=2,
+    help="Enter 1-2 characters that words should start with (e.g., 'a', 'ac', 'ch')"
 ).lower().strip()
 
-# Grade level selection with clear grade levels and skill descriptors
+# Grade level selection with clear grade levels
 grade_options = {
-    "📚 Grade 6 (Basic)": 6,
-    "📖 Grade 8 (Intermediate)": 8, 
-    "🎯 Grade 10 (Advanced)": 10,
-    "🏆 Grade 12 (Expert)": 12
+    "📚 Grade 6": 6,
+    "📖 Grade 8": 8, 
+    "🎯 Grade 10": 10,
+    "🏆 Grade 12": 12
 }
 
 selected_grade = st.sidebar.selectbox(
@@ -264,7 +264,7 @@ else:
     with col1:
         st.markdown("""
         #### 📝 Word Generation
-        Our AI generates up to 15 educational words starting with your chosen character sequence (1-3 letters), perfectly suited for your selected grade level.
+        Our AI generates up to 15 educational words starting with your chosen character sequence (1-2 letters), perfectly suited for your selected grade level.
         """)
     
     with col2:
@@ -284,7 +284,7 @@ else:
     
     # Add character sequence examples
     st.markdown("### 💡 Character Sequence Examples:")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("""
@@ -300,14 +300,6 @@ else:
         - `ch` → challenge, character, choose
         - `th` → think, through, theory
         - `st` → story, student, strong
-        """)
-    
-    with col3:
-        st.markdown("""
-        **Three Letters:**
-        - `str` → strong, structure, strategy
-        - `pre` → present, prepare, previous
-        - `con` → consider, connect, continue
         """)
 
 # Footer
